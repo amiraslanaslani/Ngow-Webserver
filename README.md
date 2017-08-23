@@ -1,1 +1,1 @@
-ngow_server
+server
