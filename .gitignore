@@ -92,3 +92,4 @@ target/
 
 # End of https://www.gitignore.io/api/java,java-web,intellij+all
 *.ipr
+*.iml
