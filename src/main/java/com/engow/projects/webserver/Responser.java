@@ -1,5 +1,7 @@
 package com.engow.projects.webserver;
 
+import org.apache.log4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +18,8 @@ import java.util.Scanner;
  * @author mrse
  */
 public class Responser {
+    final static Logger LOGGER = Logger.getLogger(Responser.class);
+
     int port;
     String rootPath;
     configFile config;
@@ -35,62 +39,24 @@ public class Responser {
             ServerSocket ss = new ServerSocket(port);
             // Now enter an infinite loop, waiting for & handling connections.
             while(true) {
-                HashMap<String,String> RequestData = new HashMap<>();
+
                 // Wait for a client to connect. The method will block;
                 // when it returns the socket will be connected to the client
                 Socket client = ss.accept();
 
-                // Get input and output streams to talk to the client
-                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                PrintWriter out = new PrintWriter(client.getOutputStream());
-
-                // Collect Client Data
-                Scanner clientInputScanner = new Scanner(client.getInputStream());
-                int counter = 0;
-                CollectClientData:
-                while(clientInputScanner.hasNextLine()){
-                    counter ++;
-                    String line;
-                    line = clientInputScanner.nextLine();
-                    if(line.length() == 0)
-                        break CollectClientData;
-                    Scanner clientInputLineReader = new Scanner( line );
-                    
-                    if(counter == 1){
-                        RequestData.put("RequestType", clientInputLineReader.next());
-                        RequestData.put("RequestedPath", clientInputLineReader.next());
-                        RequestData.put("ConnectionProtocol", clientInputLineReader.next());
+                Runnable run = new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            getAndResponse(client);
+                        } catch (Exception ex) {
+                            LOGGER.error("there was an error in thread while handling the request ",ex);
+                        }
                     }
-                    else{
-                        RequestData.put("Request" + clientInputLineReader.next(), clientInputLineReader.nextLine().trim());
-                    }
-                }
-                
-                
-                System.out.println(RequestData);
-                FileStatus page = openFile( RequestData.get("RequestedPath") );
-                
-//                for(String t : RequestData.keySet())
-//                    System.out.println(t + ":[" + RequestData.get(t) + "]");
+                };
 
-                // Start sending our reply, using the HTTP 1.1 protocol
-                out.print("HTTP/1.1 " + page.status + " \r\n"); // Version & status code
-                if(! page.contentType.equals("SELF_HEADER")){ // If program don't have header
-                    out.print("Status: " + page.stat);
-                    out.print("Content-Type: " + page.contentType + "; charset=UTF-8\r\n");
-                    out.print("Connection: close\r\n"); // Will close stream
-                    out.print("\r\n"); 
-                }
-                // End of headers
+                new Thread(run).start();
 
-                // Write Main Content
-                out.print(page.data);
-
-                // Close socket, breaking the connection to the client, and
-                // closing the input and output streams
-                out.close(); // Flush and close the output stream
-                in.close(); // Close the input stream
-                client.close(); // Close the socket itself
             } // Now loop again, waiting for the next connection
         }
         // If anything goes wrong, print an error message
@@ -151,5 +117,60 @@ public class Responser {
     
     FileStatus getDirectoryList(String Path){
         return new FileStatus(200,"text/html","<h1>Directory Index</h1>","200 OK");
+    }
+
+    public void getAndResponse(Socket socket) throws Exception {
+        HashMap<String,String> RequestData = new HashMap<>();
+        // Get input and output streams to talk to the client
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        PrintWriter out = new PrintWriter(socket.getOutputStream());
+
+        // Collect Client Data
+        Scanner clientInputScanner = new Scanner(socket.getInputStream());
+        int counter = 0;
+        CollectClientData:
+        while(clientInputScanner.hasNextLine()){
+            counter ++;
+            String line;
+            line = clientInputScanner.nextLine();
+            if(line.length() == 0)
+                break CollectClientData;
+            Scanner clientInputLineReader = new Scanner( line );
+
+            if(counter == 1){
+                RequestData.put("RequestType", clientInputLineReader.next());
+                RequestData.put("RequestedPath", clientInputLineReader.next());
+                RequestData.put("ConnectionProtocol", clientInputLineReader.next());
+            }
+            else{
+                RequestData.put("Request" + clientInputLineReader.next(), clientInputLineReader.nextLine().trim());
+            }
+        }
+
+
+        System.out.println(RequestData);
+        FileStatus page = openFile( RequestData.get("RequestedPath") );
+
+//                for(String t : RequestData.keySet())
+//                    System.out.println(t + ":[" + RequestData.get(t) + "]");
+
+        // Start sending our reply, using the HTTP 1.1 protocol
+        out.print("HTTP/1.1 " + page.status + " \r\n"); // Version & status code
+        if(! page.contentType.equals("SELF_HEADER")){ // If program don't have header
+            out.print("Status: " + page.stat);
+            out.print("Content-Type: " + page.contentType + "; charset=UTF-8\r\n");
+            out.print("Connection: close\r\n"); // Will close stream
+            out.print("\r\n");
+        }
+        // End of headers
+
+        // Write Main Content
+        out.print(page.data);
+
+        // Close socket, breaking the connection to the client, and
+        // closing the input and output streams
+        out.close(); // Flush and close the output stream
+        in.close(); // Close the input stream
+        socket.close(); // Close the socket itself
     }
 }
