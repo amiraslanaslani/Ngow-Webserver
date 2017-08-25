@@ -1,4 +1,4 @@
-package server;
+package com.engow.projects.webserver;
 
 import java.io.FileNotFoundException;
 

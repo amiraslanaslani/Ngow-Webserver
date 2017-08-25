@@ -1,4 +1,4 @@
-package server;
+package com.engow.projects.webserver;
 
 /*
  * To change this license header, choose License Headers in Project Properties.
